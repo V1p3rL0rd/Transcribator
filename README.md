@@ -1,8 +1,15 @@
 # 🎙️ Transcribator
 
-Современное веб-приложение для локальной транскрибации речи в текст на **Python**, **FastAPI** и оптимизированной библиотеке **faster-whisper** (на базе CTranslate2).
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.10+">
+  <img src="https://img.shields.io/badge/FastAPI-0.115%2B-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI">
+  <img src="https://img.shields.io/badge/faster--whisper-CTranslate2-2563EB?style=for-the-badge&logo=openai&logoColor=white" alt="faster-whisper">
+  <img src="https://img.shields.io/badge/Platform-Windows%20|%20macOS%20|%20Linux-475569?style=for-the-badge" alt="Cross-Platform">
+</p>
 
-Работает полностью автономно на вашем компьютере: аудио и видео файлы никуда не отправляются, обеспечивая 100% приватность данных.
+> **Transcribator** — современное приватное веб-приложение для локальной транскрибации речи и видео (файлы, микрофон, YouTube, VK, Facebook) в текст и документы `.DOCX` на базе **Python**, **FastAPI** и оптимизированной библиотеки **faster-whisper** (CTranslate2).
+
+Работает на 100% автономно на вашем компьютере: аудио и видео файлы никуда не отправляются в облако, обеспечивая полную конфиденциальность данных.
 
 ---
 
