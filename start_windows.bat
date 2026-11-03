@@ -34,7 +34,7 @@ echo [2/3] Проверка и установка зависимостей...
 call .venv\Scripts\activate.bat
 
 python -m pip install --upgrade pip --quiet
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 
 :: 4. Запуск приложения и открытие браузера
 echo.
