@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Transcribator — Локальная транскрибация аудио</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232563eb'/%3E%3Crect x='5' y='12' width='2.5' height='8' rx='1.25' fill='%2393c5fd'/%3E%3Crect x='10.5' y='7' width='2.5' height='18' rx='1.25' fill='%2393c5fd'/%3E%3Crect x='16' y='3' width='2.5' height='26' rx='1.25' fill='white'/%3E%3Crect x='21.5' y='8' width='2.5' height='16' rx='1.25' fill='%2393c5fd'/%3E%3Ccircle cx='25' cy='6' r='2' fill='%2338bdf8'/%3E%3C/svg%3E">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    @keyframes pulse-slow {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.7; transform: scale(1.05); }
+    }
+    .animate-pulse-slow {
+      animation: pulse-slow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+    .highlight-mark {
+      background-color: rgba(234, 179, 8, 0.35);
+      color: #fef08a;
+      padding: 0 2px;
+      border-radius: 2px;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans selection:bg-blue-600 selection:text-white">
+
+  <!-- Navigation -->
+  <header class="border-b border-slate-800 bg-slate-900/60 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <!-- Modern AI Soundwave Logo Badge -->
+        <div class="relative w-11 h-11 rounded-2xl bg-gradient-to-tr from-blue-700 via-blue-600 to-sky-400 p-[1.5px] shadow-lg shadow-blue-500/30 flex items-center justify-center group cursor-pointer">
+          <div class="w-full h-full bg-slate-950/85 rounded-[14px] flex items-center justify-center backdrop-blur-sm overflow-hidden relative">
+            <div class="absolute inset-0 bg-gradient-to-tr from-blue-600/30 via-transparent to-sky-400/20 pointer-events-none"></div>
+            <svg class="w-6 h-6 relative z-10 transition-transform duration-300 group-hover:scale-110" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="logoWaveGrad" x1="0" y1="0" x2="0" y2="24" gradientUnits="userSpaceOnUse">
+                  <stop stop-color="#38bdf8" />
+                  <stop offset="0.6" stop-color="#60a5fa" />
+                  <stop offset="1" stop-color="#ffffff" />
+                </linearGradient>
+              </defs>
+              <rect x="2" y="9" width="2.4" height="6" rx="1.2" fill="url(#logoWaveGrad)" opacity="0.75" />
+              <rect x="6.4" y="5" width="2.4" height="14" rx="1.2" fill="url(#logoWaveGrad)" opacity="0.9" />
+              <rect x="10.8" y="2" width="2.4" height="20" rx="1.2" fill="#ffffff" />
+              <rect x="15.2" y="6" width="2.4" height="12" rx="1.2" fill="url(#logoWaveGrad)" opacity="0.9" />
+              <rect x="19.6" y="10" width="2.4" height="4" rx="1.2" fill="url(#logoWaveGrad)" opacity="0.75" />
+              <circle cx="18" cy="4" r="1.5" fill="#38bdf8" />
+            </svg>
+          </div>
+        </div>
+        <div>
+          <span class="font-bold text-lg tracking-tight bg-gradient-to-r from-white via-slate-100 to-blue-300 bg-clip-text text-transparent">Transcribator</span>
+          <span class="ml-2 text-xs px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-medium">faster-whisper</span>
+        </div>
+      </div>
+      <div class="flex items-center space-x-3">
+        <!-- System Engine Badge -->
+        <div id="systemEngineBadge" class="hidden sm:flex items-center space-x-1.5 text-xs px-3 py-1.5 rounded-lg border border-slate-800 bg-slate-900 text-slate-400">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span id="engineDeviceText">CPU (int8)</span>
+        </div>
+        <a href="/docs" target="_blank" class="text-xs text-slate-400 hover:text-white transition flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border border-slate-800 hover:border-slate-700 bg-slate-900">
+          <i class="fa-solid fa-book-open"></i>
+          <span>Swagger API</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="flex-1 max-w-5xl w-full mx-auto px-4 py-8 space-y-8">
+
+    <!-- Upload & Setup Card -->
+    <div id="setupCard" class="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 md:p-8 shadow-2xl relative overflow-hidden">
+      <div class="absolute -top-24 -right-24 w-72 h-72 bg-blue-600/10 rounded-full blur-3xl pointer-events-none"></div>
+
+      <div class="space-y-6">
+        <div>
+          <h1 class="text-2xl md:text-3xl font-extrabold text-white">Транскрибация аудио в текст</h1>
+          <p class="text-slate-400 text-sm mt-1">100% приватная локальная обработка через faster-whisper. Данные не отправляются в облако.</p>
+        </div>
+
+        <!-- Mode Selector: File Upload vs Mic Record vs URL -->
+        <div class="flex flex-wrap gap-2 bg-slate-950/70 p-1 rounded-xl border border-slate-800/80 w-fit">
+          <button id="modeFileBtn" onclick="switchInputMode('file')" class="px-4 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 text-white transition flex items-center space-x-2">
+            <i class="fa-solid fa-file-audio"></i>
+            <span>Файл с диска</span>
+          </button>
+          <button id="modeMicBtn" onclick="switchInputMode('mic')" class="px-4 py-1.5 text-xs font-semibold rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition flex items-center space-x-2">
+            <i class="fa-solid fa-microphone"></i>
+            <span>Запись с микрофона</span>
+          </button>
+          <button id="modeUrlBtn" onclick="switchInputMode('url')" class="px-4 py-1.5 text-xs font-semibold rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition flex items-center space-x-2">
+            <i class="fa-solid fa-link"></i>
+            <span>Видео по ссылке</span>
+          </button>
+        </div>
+
+        <!-- File Upload Area -->
+        <div id="fileUploadContainer" class="space-y-4">
+          <div id="dropZone" class="border-2 border-dashed border-slate-700 hover:border-blue-500/70 bg-slate-950/50 hover:bg-slate-900/50 rounded-2xl p-8 text-center transition cursor-pointer group">
+            <input type="file" id="fileInput" class="hidden" accept="audio/*,video/*,.mp3,.wav,.m4a,.ogg,.webm,.flac,.aac,.mp4,.mov,.mkv,.opus">
+            <div class="flex flex-col items-center justify-center space-y-3">
+              <div class="w-14 h-14 rounded-full bg-slate-800/80 group-hover:bg-blue-600/20 group-hover:scale-105 transition flex items-center justify-center text-slate-400 group-hover:text-blue-400">
+                <i class="fa-solid fa-cloud-arrow-up text-2xl"></i>
+              </div>
+              <div class="space-y-1">
+                <p class="text-sm font-semibold text-slate-200">
+                  Перетащите аудиофайл сюда или <span class="text-blue-400 group-hover:underline">выберите на диске</span>
+                </p>
+                <p class="text-xs text-slate-500">MP3, WAV, M4A, OGG, WEBM, FLAC, MP4 до 2 ГБ</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mic Recording Area -->
+        <div id="micContainer" class="hidden bg-slate-950/60 border border-slate-800/90 rounded-2xl p-8 text-center space-y-4">
+          <div class="flex flex-col items-center justify-center space-y-3">
+            <button id="recordToggleBtn" onclick="toggleMicrophoneRecording()" class="w-20 h-20 rounded-full bg-rose-600/20 border-2 border-rose-500 hover:bg-rose-600/30 text-rose-400 flex items-center justify-center transition shadow-lg shadow-rose-600/20 cursor-pointer">
+              <i id="recordBtnIcon" class="fa-solid fa-microphone text-2xl"></i>
+            </button>
+            <div id="recordStatusText" class="text-sm font-medium text-slate-300">Нажмите для начала записи</div>
+            <div id="recordTimer" class="hidden text-xl font-mono font-bold text-rose-400 tracking-wider">00:00</div>
+          </div>
+        </div>
+
+        <!-- Video by URL Area -->
+        <div id="urlContainer" class="hidden bg-slate-950/60 border border-slate-800/90 rounded-2xl p-6 md:p-8 space-y-4">
+          <div class="space-y-2">
+            <label class="block text-xs font-semibold text-slate-300">
+              Ссылка на видео или аудиозапись
+            </label>
+            <div class="relative">
+              <i class="fa-solid fa-link absolute left-3.5 top-3.5 text-slate-500 text-sm"></i>
+              <input type="url" id="videoUrlInput" oninput="handleUrlInput(this.value)" placeholder="https://www.youtube.com/watch?v=... или ссылка на Rutube, VK, Facebook" class="w-full bg-slate-900 border border-slate-700/80 rounded-xl pl-10 pr-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500">
+            </div>
+            <div class="flex flex-wrap items-center gap-2 pt-1 text-[11px] text-slate-400">
+              <span class="text-slate-500">Поддерживаются:</span>
+              <span class="px-2 py-0.5 rounded bg-slate-800/90 border border-slate-700/50"><i class="fa-brands fa-youtube text-rose-500 mr-1"></i>YouTube</span>
+              <span class="px-2 py-0.5 rounded bg-slate-800/90 border border-slate-700/50"><i class="fa-brands fa-vk text-sky-500 mr-1"></i>VK Видео</span>
+              <span class="px-2 py-0.5 rounded bg-slate-800/90 border border-slate-700/50">Rutube</span>
+              <span class="px-2 py-0.5 rounded bg-slate-800/90 border border-slate-700/50"><i class="fa-brands fa-facebook text-blue-500 mr-1"></i>Facebook</span>
+              <span class="px-2 py-0.5 rounded bg-slate-800/90 border border-slate-700/50"><i class="fa-brands fa-tiktok text-slate-300 mr-1"></i>TikTok</span>
+              <span class="px-2 py-0.5 rounded bg-slate-800/90 border border-slate-700/50"><i class="fa-brands fa-vimeo-v text-cyan-400 mr-1"></i>Vimeo</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- File Selected Preview -->
+        <div id="fileInfoBox" class="hidden bg-slate-800/50 border border-slate-700/60 rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div class="flex items-center space-x-3 overflow-hidden">
+            <div class="w-10 h-10 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0">
+              <i class="fa-solid fa-music"></i>
+            </div>
+            <div class="overflow-hidden">
+              <p id="fileName" class="text-sm font-medium text-white truncate max-w-md">audio.mp3</p>
+              <p id="fileSize" class="text-xs text-slate-400">0 MB</p>
+            </div>
+          </div>
+          <audio id="audioPreview" controls class="h-9 w-full md:w-64 max-w-full rounded-lg"></audio>
+        </div>
+
+        <!-- Configuration Settings -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+          <!-- Model Size -->
+          <div class="space-y-1.5">
+            <label class="block text-xs font-semibold text-slate-300">Модель Whisper</label>
+            <select id="modelSelect" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500 transition">
+              <option value="small" selected>Small (~244M) [Рекомендуется для CPU]</option>
+              <option value="large-v3-turbo">Turbo (~800M) [Флагманское качество]</option>
+              <option value="base">Base (~74M) [Черновик]</option>
+              <option value="tiny">Tiny (~39M) [Сверхбыстрый черновик]</option>
+              <option value="medium">Medium (~769M) [Высокая точность]</option>
+              <option value="large-v3">Large v3 (~1550M) [Студийная точность]</option>
+            </select>
+            <p class="text-[11px] text-slate-500">Small и Turbo устраняют ошибки и зацикливания.</p>
+          </div>
+
+          <!-- Language -->
+          <div class="space-y-1.5">
+            <label class="block text-xs font-semibold text-slate-300">Язык аудио</label>
+            <select id="langSelect" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500 transition">
+              <option value="auto">✨ Автоопределение</option>
+              <option value="ru" selected>Русский (Рекомендуется)</option>
+              <option value="en">English</option>
+              <option value="uk">Українська</option>
+              <option value="de">Deutsch</option>
+              <option value="fr">Français</option>
+              <option value="es">Español</option>
+              <option value="zh">中文</option>
+              <option value="kz">Қазақша</option>
+            </select>
+            <p class="text-[11px] text-slate-500">Точный выбор языка повышает качество терминов.</p>
+          </div>
+
+          <!-- Task -->
+          <div class="space-y-1.5">
+            <label class="block text-xs font-semibold text-slate-300">Действие</label>
+            <select id="taskSelect" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500 transition">
+              <option value="transcribe" selected>Транскрибировать оригинал</option>
+              <option value="translate">Перевести на английский</option>
+            </select>
+            <p class="text-[11px] text-slate-500">Translate переводит любой язык на English.</p>
+          </div>
+        </div>
+
+        <!-- Quality Optimization Controls -->
+        <div class="border border-slate-800/80 rounded-xl bg-slate-950/40 p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+              <i class="fa-solid fa-sliders text-blue-400 text-xs"></i>
+              <span class="text-xs font-semibold text-slate-200">Оптимизация качества и контекст</span>
+            </div>
+            <button type="button" onclick="toggleAdvancedSettings()" class="text-xs text-blue-400 hover:text-blue-300 transition flex items-center space-x-1 cursor-pointer">
+              <span id="advSettingsToggleText">Скрыть</span>
+              <i id="advSettingsArrow" class="fa-solid fa-chevron-up text-[10px] transition-transform"></i>
+            </button>
+          </div>
+          
+          <div id="advSettingsContent" class="space-y-3 pt-1">
+            <div>
+              <label class="block text-[11px] font-medium text-slate-400 mb-1">
+                Подсказка контекста / ключевые слова (Initial Prompt)
+              </label>
+              <input type="text" id="initialPromptInput" placeholder="например: термины, имена, разговорная речь, диалог, гаишники, штраф" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500">
+              <p class="text-[10px] text-slate-500 mt-1">Помогает Whisper правильно распознавать специфические слова, сленг, сокращения и имена.</p>
+            </div>
+
+            <div class="flex items-center justify-between pt-1">
+              <div>
+                <span class="text-xs font-medium text-slate-300">Подавление повторов (Anti-hallucination)</span>
+                <p class="text-[10px] text-slate-500">Отключает циклические повторы слов и звуков при паузах.</p>
+              </div>
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="antiRepetitionCheck" checked class="sr-only peer">
+                <div class="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Submit Button -->
+        <button id="startBtn" disabled class="w-full py-3.5 px-6 rounded-xl font-semibold text-sm bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-500 text-white shadow-lg shadow-blue-600/25 disabled:shadow-none transition flex items-center justify-center space-x-2 cursor-pointer disabled:cursor-not-allowed">
+          <i class="fa-solid fa-play"></i>
+          <span id="startBtnText">Начать расшифровку</span>
+          <span class="text-xs text-blue-300 font-normal hidden md:inline">(Ctrl+Enter)</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Processing Card (Hidden by default) -->
+    <div id="processingCard" class="hidden bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <div class="w-8 h-8 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center animate-spin">
+            <i class="fa-solid fa-circle-notch"></i>
+          </div>
+          <div>
+            <h3 id="progressTitle" class="text-sm font-semibold text-white">Выполняется транскрибация...</h3>
+            <p id="progressSubtitle" class="text-xs text-slate-400">Модель обрабатывает аудио сегмент за сегментом</p>
+          </div>
+        </div>
+        <span id="progressPctText" class="text-lg font-bold text-blue-400">0%</span>
+      </div>
+
+      <!-- Progress bar -->
+      <div class="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden">
+        <div id="progressBar" class="bg-gradient-to-r from-blue-600 via-blue-500 to-sky-400 h-full w-0 transition-all duration-300"></div>
+      </div>
+    </div>
+
+    <!-- Error Alert (Hidden by default) -->
+    <div id="errorAlert" class="hidden bg-rose-500/10 border border-rose-500/30 text-rose-300 rounded-xl p-4 text-sm flex items-start space-x-3">
+      <i class="fa-solid fa-circle-exclamation text-rose-400 text-lg mt-0.5"></i>
+      <div class="flex-1" id="errorMessage">Произошла ошибка при обработке</div>
+    </div>
+
+    <!-- Result Card (Hidden by default) -->
+    <div id="resultCard" class="hidden bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden space-y-0">
+      <!-- Result Header & Stats -->
+      <div class="p-6 border-b border-slate-800 bg-slate-900/50 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <span class="text-xs uppercase font-bold tracking-wider text-emerald-400 flex items-center space-x-1.5 mb-1">
+            <i class="fa-solid fa-circle-check"></i>
+            <span>Готово</span>
+          </span>
+          <h2 class="text-lg font-bold text-white" id="resultFileName">audio.mp3</h2>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-3 text-xs">
+          <div class="px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700/60 text-slate-300">
+            Язык: <span id="resLang" class="font-semibold text-white">RU</span> (<span id="resLangProb">99%</span>)
+          </div>
+          <div class="px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700/60 text-slate-300">
+            Длительность: <span id="resDuration" class="font-semibold text-white">0 сек</span>
+          </div>
+          <div class="px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700/60 text-slate-300">
+            Сегментов: <span id="resSegmentsCount" class="font-semibold text-white">0</span>
+          </div>
+          <button onclick="resetApp()" class="px-3 py-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 transition flex items-center space-x-1.5 cursor-pointer">
+            <i class="fa-solid fa-plus"></i>
+            <span>Новая запись</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Export & Action Toolbar -->
+      <div class="px-6 py-3 bg-slate-950/60 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3">
+        <!-- Tabs -->
+        <div class="flex space-x-1">
+          <button id="tabTextBtn" onclick="switchTab('text')" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 text-white transition">
+            Текст
+          </button>
+          <button id="tabSegmentsBtn" onclick="switchTab('segments')" class="px-3 py-1.5 text-xs font-semibold rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition">
+            Субтитры с таймкодами
+          </button>
+        </div>
+
+        <!-- Search input -->
+        <div class="relative w-48 sm:w-64">
+          <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-2.5 text-slate-500 text-xs"></i>
+          <input type="text" id="searchInput" oninput="handleSearch(this.value)" placeholder="Поиск в тексте..." class="w-full bg-slate-900 border border-slate-800 rounded-lg pl-8 pr-3 py-1 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500">
+        </div>
+
+        <!-- Download Buttons -->
+        <div class="flex flex-wrap items-center gap-2">
+          <button onclick="copyFullText()" class="px-3 py-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700 flex items-center space-x-1.5 transition cursor-pointer">
+            <i class="fa-regular fa-copy"></i>
+            <span>Копировать</span>
+          </button>
+          <a id="dlTxt" href="#" class="px-3 py-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700 flex items-center space-x-1.5 transition">
+            <i class="fa-solid fa-file-lines text-slate-400"></i>
+            <span>Скачать .TXT</span>
+          </a>
+          <a id="dlDocx" href="#" class="px-3 py-1.5 text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white rounded-lg shadow-sm shadow-blue-500/20 flex items-center space-x-1.5 transition">
+            <i class="fa-solid fa-file-word"></i>
+            <span>Скачать .DOCX</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Tab Content Area -->
+      <div class="p-6">
+        <!-- Text View -->
+        <div id="viewText" class="space-y-4">
+          <div id="fullTextContainer" class="whitespace-pre-wrap text-slate-200 leading-relaxed text-sm bg-slate-950/40 p-5 rounded-xl border border-slate-800/80 font-normal select-text max-h-[600px] overflow-y-auto"></div>
+        </div>
+
+        <!-- Segments View -->
+        <div id="viewSegments" class="hidden space-y-3 max-h-[600px] overflow-y-auto pr-1"></div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-slate-800 py-6 text-center text-xs text-slate-500">
+    Transcribator • Работает полностью локально на Mac/Linux/Windows через faster-whisper
+  </footer>
+
+  <script>
+    let selectedFile = null;
+    let currentTaskId = null;
+    let pollInterval = null;
+    let currentResult = null;
+    let currentSearchTerm = '';
+
+    // Microphone Recording State
+    let mediaRecorder = null;
+    let recordedChunks = [];
+    let recordStartTime = null;
+    let recordTimerInterval = null;
+    let isRecording = false;
+
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const fileInfoBox = document.getElementById('fileInfoBox');
+    const fileName = document.getElementById('fileName');
+    const fileSize = document.getElementById('fileSize');
+    const audioPreview = document.getElementById('audioPreview');
+    const startBtn = document.getElementById('startBtn');
+
+    const fileUploadContainer = document.getElementById('fileUploadContainer');
+    const micContainer = document.getElementById('micContainer');
+    const modeFileBtn = document.getElementById('modeFileBtn');
+    const modeMicBtn = document.getElementById('modeMicBtn');
+
+    const processingCard = document.getElementById('processingCard');
+    const progressBar = document.getElementById('progressBar');
+    const progressPctText = document.getElementById('progressPctText');
+    const progressTitle = document.getElementById('progressTitle');
+    const errorAlert = document.getElementById('errorAlert');
+    const errorMessage = document.getElementById('errorMessage');
+
+    const resultCard = document.getElementById('resultCard');
+    const fullTextContainer = document.getElementById('fullTextContainer');
+    const viewSegments = document.getElementById('viewSegments');
+
+    // Check System Engine on load
+    async function checkHealth() {
+      try {
+        const res = await fetch('/api/health');
+        if (res.ok) {
+          const data = await res.json();
+          const dev = (data.device || 'cpu').toUpperCase();
+          const comp = data.compute_type || 'int8';
+          document.getElementById('engineDeviceText').textContent = `${dev} (${comp})`;
+          document.getElementById('systemEngineBadge').classList.remove('hidden');
+        }
+      } catch (e) {}
+    }
+    checkHealth();
+
+    // Mode Switcher (File vs Mic vs URL)
+    let currentInputMode = 'file';
+
+    function switchInputMode(mode) {
+      currentInputMode = mode;
+      const fileUploadContainer = document.getElementById('fileUploadContainer');
+      const micContainer = document.getElementById('micContainer');
+      const urlContainer = document.getElementById('urlContainer');
+      const videoUrlInput = document.getElementById('videoUrlInput');
+      const startBtnText = document.getElementById('startBtnText');
+
+      const btnActive = 'px-4 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 text-white transition flex items-center space-x-2';
+      const btnInactive = 'px-4 py-1.5 text-xs font-semibold rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition flex items-center space-x-2';
+
+      document.getElementById('modeFileBtn').className = mode === 'file' ? btnActive : btnInactive;
+      document.getElementById('modeMicBtn').className = mode === 'mic' ? btnActive : btnInactive;
+      document.getElementById('modeUrlBtn').className = mode === 'url' ? btnActive : btnInactive;
+
+      fileUploadContainer.classList.toggle('hidden', mode !== 'file');
+      micContainer.classList.toggle('hidden', mode !== 'mic');
+      urlContainer.classList.toggle('hidden', mode !== 'url');
+
+      if (mode === 'url') {
+        startBtn.disabled = !videoUrlInput.value.trim().startsWith('http');
+        if (startBtnText) startBtnText.textContent = 'Скачать и расшифровать';
+      } else {
+        startBtn.disabled = !selectedFile;
+        if (startBtnText) startBtnText.textContent = 'Начать расшифровку';
+      }
+    }
+
+    function handleUrlInput(val) {
+      if (currentInputMode === 'url') {
+        startBtn.disabled = !val.trim().startsWith('http');
+      }
+    }
+
+    // Advanced Settings Toggle
+    function toggleAdvancedSettings() {
+      const content = document.getElementById('advSettingsContent');
+      const arrow = document.getElementById('advSettingsArrow');
+      const text = document.getElementById('advSettingsToggleText');
+      const isHidden = content.classList.contains('hidden');
+      if (isHidden) {
+        content.classList.remove('hidden');
+        arrow.className = 'fa-solid fa-chevron-up text-[10px] transition-transform';
+        text.textContent = 'Скрыть';
+      } else {
+        content.classList.add('hidden');
+        arrow.className = 'fa-solid fa-chevron-down text-[10px] transition-transform';
+        text.textContent = 'Показать';
+      }
+    }
+
+    // Microphone Recording
+    async function toggleMicrophoneRecording() {
+      if (!isRecording) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          recordedChunks = [];
+          mediaRecorder = new MediaRecorder(stream);
+
+          mediaRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0) recordedChunks.push(e.data);
+          };
+
+          mediaRecorder.onstop = () => {
+            const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+            const file = new File([blob], `mic_record_${Date.now()}.webm`, { type: 'audio/webm' });
+            handleFileSelect(file);
+            stream.getTracks().forEach(track => track.stop());
+          };
+
+          mediaRecorder.start();
+          isRecording = true;
+
+          // UI update
+          const btn = document.getElementById('recordToggleBtn');
+          btn.classList.add('animate-pulse-slow', 'bg-rose-600', 'text-white');
+          btn.classList.remove('bg-rose-600/20', 'text-rose-400');
+          document.getElementById('recordBtnIcon').className = 'fa-solid fa-stop text-2xl';
+          document.getElementById('recordStatusText').textContent = 'Идёт запись... Нажмите, чтобы завершить';
+
+          const timerEl = document.getElementById('recordTimer');
+          timerEl.classList.remove('hidden');
+          recordStartTime = Date.now();
+          recordTimerInterval = setInterval(() => {
+            const diff = Math.floor((Date.now() - recordStartTime) / 1000);
+            const m = String(Math.floor(diff / 60)).padStart(2, '0');
+            const s = String(diff % 60).padStart(2, '0');
+            timerEl.textContent = `${m}:${s}`;
+          }, 500);
+
+        } catch (err) {
+          showError('Доступ к микрофону отклонен или недоступен: ' + err.message);
+        }
+      } else {
+        // Stop recording
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+          mediaRecorder.stop();
+        }
+        isRecording = false;
+        clearInterval(recordTimerInterval);
+
+        const btn = document.getElementById('recordToggleBtn');
+        btn.classList.remove('animate-pulse-slow', 'bg-rose-600', 'text-white');
+        btn.classList.add('bg-rose-600/20', 'text-rose-400');
+        document.getElementById('recordBtnIcon').className = 'fa-solid fa-microphone text-2xl';
+        document.getElementById('recordStatusText').textContent = 'Запись сохранена. Готово к расшифровке!';
+        document.getElementById('recordTimer').classList.add('hidden');
+      }
+    }
+
+    // Drag & Drop
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('border-blue-500', 'bg-slate-900');
+    });
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('border-blue-500', 'bg-slate-900');
+    });
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('border-blue-500', 'bg-slate-900');
+      if (e.dataTransfer.files.length) {
+        handleFileSelect(e.dataTransfer.files[0]);
+      }
+    });
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files.length) {
+        handleFileSelect(e.target.files[0]);
+      }
+    });
+
+    function handleFileSelect(file) {
+      selectedFile = file;
+      fileName.textContent = file.name;
+      fileSize.textContent = (file.size / (1024 * 1024)).toFixed(2) + ' MB';
+      fileInfoBox.classList.remove('hidden');
+      startBtn.disabled = false;
+
+      try {
+        audioPreview.src = URL.createObjectURL(file);
+      } catch (err) {}
+    }
+
+    // Hotkey: Ctrl+Enter or Cmd+Enter to start transcription
+    document.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        if (!startBtn.disabled) startBtn.click();
+      }
+    });
+
+    startBtn.addEventListener('click', async () => {
+      const isUrlMode = currentInputMode === 'url';
+      const videoUrlInput = document.getElementById('videoUrlInput');
+
+      if (isUrlMode) {
+        if (!videoUrlInput.value.trim().startsWith('http')) return;
+      } else {
+        if (!selectedFile) return;
+      }
+
+      startBtn.disabled = true;
+      errorAlert.classList.add('hidden');
+      resultCard.classList.add('hidden');
+      processingCard.classList.remove('hidden');
+
+      progressBar.style.width = '5%';
+      progressPctText.textContent = '5%';
+      progressTitle.textContent = isUrlMode
+        ? 'Скачивание аудиопотока по ссылке...'
+        : 'Загрузка аудиофайла на сервер...';
+
+      const formData = new FormData();
+      if (isUrlMode) {
+        formData.append('url', videoUrlInput.value.trim());
+      } else {
+        formData.append('file', selectedFile);
+      }
+      formData.append('model_size', document.getElementById('modelSelect').value);
+      formData.append('language', document.getElementById('langSelect').value);
+      formData.append('task', document.getElementById('taskSelect').value);
+
+      const promptVal = document.getElementById('initialPromptInput')?.value || '';
+      if (promptVal.trim()) {
+        formData.append('initial_prompt', promptVal.trim());
+      }
+      const antiRepeat = document.getElementById('antiRepetitionCheck')?.checked ?? true;
+      formData.append('condition_on_previous_text', antiRepeat ? 'false' : 'true');
+
+      try {
+        const endpoint = isUrlMode ? '/api/transcribe-url' : '/api/transcribe';
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const errData = await response.json();
+          throw new Error(errData.detail || 'Ошибка запуска транскрибации');
+        }
+
+        const data = await response.json();
+        currentTaskId = data.task_id;
+        progressTitle.textContent = isUrlMode
+          ? 'Аудио скачано. Идет распознавание речи...'
+          : 'Модель загружена. Идет распознавание речи...';
+
+        startPolling(currentTaskId);
+      } catch (err) {
+        showError(err.message);
+        processingCard.classList.add('hidden');
+        startBtn.disabled = false;
+      }
+    });
+
+    function startPolling(taskId) {
+      if (pollInterval) clearInterval(pollInterval);
+
+      pollInterval = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/tasks/${taskId}`);
+          if (!res.ok) throw new Error('Не удалось получить статус задачи');
+
+          const task = await res.json();
+          const progress = task.progress || 0;
+
+          progressBar.style.width = `${Math.max(5, progress)}%`;
+          progressPctText.textContent = `${progress}%`;
+
+          if (task.status === 'processing') {
+            progressTitle.textContent = `Распознавание речи... (${progress}%)`;
+          } else if (task.status === 'completed') {
+            clearInterval(pollInterval);
+            processingCard.classList.add('hidden');
+            startBtn.disabled = false;
+            displayResult(task);
+          } else if (task.status === 'failed') {
+            clearInterval(pollInterval);
+            processingCard.classList.add('hidden');
+            startBtn.disabled = false;
+            showError(task.error || 'Ошибка при обработке аудио');
+          }
+        } catch (err) {
+          clearInterval(pollInterval);
+          showError(err.message);
+          processingCard.classList.add('hidden');
+          startBtn.disabled = false;
+        }
+      }, 1000);
+    }
+
+    function formatTime(seconds) {
+      const mins = Math.floor(seconds / 60);
+      const secs = Math.floor(seconds % 60);
+      return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+    }
+
+    function displayResult(task) {
+      currentResult = task.result;
+      document.getElementById('resultFileName').textContent = task.filename;
+      document.getElementById('resLang').textContent = (currentResult.language || 'auto').toUpperCase();
+      document.getElementById('resLangProb').textContent = `${Math.round((currentResult.language_probability || 1) * 100)}%`;
+      document.getElementById('resDuration').textContent = formatTime(currentResult.duration);
+      document.getElementById('resSegmentsCount').textContent = currentResult.segments.length;
+
+      // Download links
+      document.getElementById('dlTxt').href = `/api/export/${task.task_id}/txt`;
+      document.getElementById('dlDocx').href = `/api/export/${task.task_id}/docx`;
+
+      renderContent();
+
+      switchTab('text');
+      resultCard.classList.remove('hidden');
+      resultCard.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function renderContent() {
+      if (!currentResult) return;
+
+      const q = currentSearchTerm.trim().toLowerCase();
+
+      // Full Text Render
+      if (!q) {
+        fullTextContainer.textContent = currentResult.text;
+      } else {
+        const regex = new RegExp(`(${escapeRegExp(currentSearchTerm)})`, 'gi');
+        const highlighted = escapeHtml(currentResult.text).replace(regex, '<mark class="highlight-mark">$1</mark>');
+        fullTextContainer.innerHTML = highlighted;
+      }
+
+      // Segments Render
+      viewSegments.innerHTML = '';
+      currentResult.segments.forEach((seg) => {
+        const isMatch = !q || seg.text.toLowerCase().includes(q);
+
+        const segEl = document.createElement('div');
+        segEl.className = `p-3 rounded-xl border transition flex flex-col md:flex-row md:items-start gap-3 group ${
+          isMatch ? 'bg-slate-950/50 hover:bg-slate-800/60 border-slate-800/80' : 'opacity-40 bg-slate-950/20 border-slate-900'
+        }`;
+
+        const timeBtn = document.createElement('button');
+        timeBtn.className = 'text-xs font-mono px-2 py-1 bg-blue-500/10 text-blue-400 group-hover:bg-blue-600 group-hover:text-white rounded border border-blue-500/20 transition shrink-0 cursor-pointer';
+        timeBtn.textContent = `[${formatTime(seg.start)} ➔ ${formatTime(seg.end)}]`;
+        timeBtn.title = 'Перейти к этому моменту в аудио';
+        timeBtn.onclick = () => {
+          if (audioPreview.src) {
+            audioPreview.currentTime = seg.start;
+            audioPreview.play();
+          }
+        };
+
+        const textSpan = document.createElement('p');
+        textSpan.className = 'text-sm text-slate-200 select-text leading-relaxed flex-1';
+
+        if (q && isMatch) {
+          const regex = new RegExp(`(${escapeRegExp(currentSearchTerm)})`, 'gi');
+          textSpan.innerHTML = escapeHtml(seg.text).replace(regex, '<mark class="highlight-mark">$1</mark>');
+        } else {
+          textSpan.textContent = seg.text;
+        }
+
+        segEl.appendChild(timeBtn);
+        segEl.appendChild(textSpan);
+        viewSegments.appendChild(segEl);
+      });
+    }
+
+    function handleSearch(val) {
+      currentSearchTerm = val;
+      renderContent();
+    }
+
+    function switchTab(tab) {
+      const tabs = ['text', 'segments'];
+      tabs.forEach(t => {
+        const btn = document.getElementById(`tab${t.charAt(0).toUpperCase() + t.slice(1)}Btn`);
+        const view = document.getElementById(`view${t.charAt(0).toUpperCase() + t.slice(1)}`);
+        if (btn && view) {
+          if (t === tab) {
+            btn.className = 'px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 text-white transition';
+            view.classList.remove('hidden');
+          } else {
+            btn.className = 'px-3 py-1.5 text-xs font-semibold rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition';
+            view.classList.add('hidden');
+          }
+        }
+      });
+    }
+
+    function copyFullText() {
+      if (!currentResult || !currentResult.text) return;
+      navigator.clipboard.writeText(currentResult.text).then(() => {
+        alert('Полный текст скопирован в буфер обмена!');
+      });
+    }
+
+    function resetApp() {
+      resultCard.classList.add('hidden');
+      fileInfoBox.classList.add('hidden');
+      selectedFile = null;
+      fileInput.value = '';
+      const vInput = document.getElementById('videoUrlInput');
+      if (vInput) vInput.value = '';
+      startBtn.disabled = true;
+      document.getElementById('searchInput').value = '';
+      currentSearchTerm = '';
+      document.getElementById('setupCard').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function showError(msg) {
+      errorMessage.textContent = msg;
+      errorAlert.classList.remove('hidden');
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/[&<>"']/g, (m) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+      }[m]));
+    }
+
+    function escapeRegExp(string) {
+      return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+  </script>
+</body>
+</html>
