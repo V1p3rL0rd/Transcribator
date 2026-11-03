@@ -30,11 +30,13 @@ if [ ! -d ".venv" ]; then
     python3 -m venv .venv
 fi
 
-# 3. Активация и установка зависимостей
-echo "[2/3] Проверка и установка зависимостей..."
+# 3. Активация и быстрая проверка зависимостей
 source .venv/bin/activate
-python3 -m pip install --upgrade pip --quiet
-python3 -m pip install -r requirements.txt --quiet
+if ! python3 -c "import uvicorn, faster_whisper, docx, yt_dlp" &>/dev/null; then
+    echo "[2/3] Установка необходимых библиотек (первый запуск, может занять пару минут)..."
+    python3 -m pip install --upgrade pip --quiet
+    python3 -m pip install -r requirements.txt --quiet
+fi
 
 # 4. Запуск
 echo ""
