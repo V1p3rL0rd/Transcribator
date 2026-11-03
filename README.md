@@ -67,20 +67,39 @@ Transcribator/
 
 ### 1. Windows
 
+> 💡 **Самый простой способ**: просто дважды кликните по файлу **`start_windows.bat`** в Проводнике — он автоматически найдет Python, создаст окружение, установит все библиотеки и запустит приложение.
+
+Если вы настраиваете вручную через терминал:
+
 1. Установите **Python 3.10–3.12** с [python.org](https://www.python.org/downloads/) *(обязательно отметьте галочку **"Add python.exe to PATH"**)*.
-2. Установите FFmpeg в PowerShell:
+2. Установите FFmpeg (в PowerShell):
    ```powershell
    winget install Gyan.FFmpeg
    ```
-3. Откройте командную строку в папке проекта:
+3. Выполните команды в терминале:
+
+   **В PowerShell:**
+   ```powershell
+   python -m venv .venv
+   .\.venv\Scripts\python.exe -m pip install --upgrade pip
+   .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+   .\.venv\Scripts\python.exe run.py
+   ```
+   *(Прямой вызов `.\.venv\Scripts\python.exe` не требует изменения ExecutionPolicy в PowerShell и работает без ошибок доступа).*
+
+   **В классической командной строке (CMD):**
    ```cmd
    python -m venv .venv
    call .venv\Scripts\activate.bat
-   pip install --upgrade pip
-   pip install -r requirements.txt
+   python -m pip install --upgrade pip
+   python -m pip install -r requirements.txt
    python run.py
    ```
-4. *(Опционально для видеокарт NVIDIA)*: `pip install nvidia-cublas-cu12 nvidia-cudnn-cu12` для мгновенной скорости CUDA.
+
+4. *(Опционально для видеокарт NVIDIA)*: 
+   ```powershell
+   .\.venv\Scripts\python.exe -m pip install nvidia-cublas-cu12 nvidia-cudnn-cu12
+   ```
 
 ---
 
