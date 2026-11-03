@@ -34,13 +34,6 @@ if (-not $pythonCmd) {
 }
 
 # 2. Создание виртуального окружения (.venv)
-if (Test-Path ".venv") {
-    if (-not (Test-Path ".venv\Scripts\python.exe")) {
-        Write-Host "[!] Обнаружено неполное окружение .venv. Пересоздаём..." -ForegroundColor Yellow
-        Remove-Item -Recurse -Force ".venv"
-    }
-}
-
 if (-not (Test-Path ".venv")) {
     Write-Host "[1/3] Создание виртуального окружения (.venv)..." -ForegroundColor Yellow
     & $pythonCmd -m venv .venv

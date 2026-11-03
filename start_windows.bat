@@ -1,12 +1,22 @@
 @echo off
-setlocal
 cd /d "%~dp0"
 title Transcribator
 
-rem Run PowerShell with Bypass policy so it works regardless of Windows security settings
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0start_windows.ps1"
+echo ====================================================
+echo             Transcribator Launcher
+echo ====================================================
+echo.
 
-if %errorlevel% neq 0 (
-    echo.
-    pause
-)
+echo [1/2] Checking and installing dependencies...
+python -m pip install --upgrade pip --quiet
+python -m pip install -r requirements.txt
+
+echo.
+echo [2/2] Starting Transcribator web server...
+echo Web UI will open at: http://127.0.0.1:8000
+echo.
+
+start "" http://127.0.0.1:8000
+python run.py
+
+pause
