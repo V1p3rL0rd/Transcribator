@@ -41,25 +41,29 @@ Transcribator/
 │   ├── main.py              # FastAPI сервер, эндпоинты API и маршруты статики
 │   ├── models.py            # Pydantic-схемы данных (задачи, сегменты, результаты)
 │   ├── tasks.py             # Асинхронный TaskManager (фоновая обработка задач)
-│   ├── transcriber.py       # Движок faster-whisper, кэширование моделей, экспорт SRT/VTT
+│   ├── transcriber.py       # Движок faster-whisper, кэширование моделей
 │   └── static/
 │       └── index.html       # Адаптивный веб-интерфейс (Tailwind CSS, FontAwesome)
-├── uploads/                 # Временная папка для загрузок (автоочистка после обработки)
+├── uploads/                 # Временная папка для загрузок (автоочистка)
 ├── requirements.txt         # Зависимости Python
 ├── run.py                   # Точка входа для запуска веб-сервера
-├── start_windows.bat        # Запуск в 1 клик для Windows
-├── start_unix.sh            # Запуск в 1 клик для macOS / Linux
+├── start_unix.sh            # Скрипт быстрого запуска для macOS / Linux
 └── README.md                # Документация проекта
 ```
 
 ---
 
-## 🚀 Быстрый старт в 1 клик
+## 🚀 Быстрый старт
 
-- **Windows**: Дважды кликните по файлу `start_windows.bat`.
-- **macOS / Linux**: Выполните `./start_unix.sh` в терминале.
+Откройте терминал (**Командная строка CMD / PowerShell / Terminal**) в папке проекта и выполните всего 2 команды:
 
-Скрипт сам создаст `.venv`, установит библиотеки, запустит сервер и откроет браузер!
+```bash
+pip install -r requirements.txt
+python run.py
+```
+
+После старта веб-интерфейс автоматически доступен по адресу:  
+👉 **[http://127.0.0.1:8000](http://127.0.0.1:8000)** (документация API: `/docs`)
 
 ---
 
@@ -67,25 +71,35 @@ Transcribator/
 
 ### 1. Windows
 
-> 💡 **Самый простой способ**: просто дважды кликните по файлу **`start_windows.bat`** в Проводнике — он автоматически найдет Python, создаст окружение, установит все библиотеки и запустит приложение.
-
+1. Установите **Python 3.10–3.14** с [python.org](https://www.python.org/downloads/) *(обязательно отметьте галочку **"Add python.exe to PATH"** при установке)*.
+2. Откройте командную строку (**CMD**) или **PowerShell** в папке проекта:
+   ```cmd
+   pip install -r requirements.txt
+   python run.py
+   ```
+3. *(Опционально)*: Установите FFmpeg в PowerShell:
+   ```powershell
+   winget install Gyan.FFmpeg
+   ```
+4. *(Опционально для видеокарт NVIDIA)*:
+   ```cmd
+   pip install nvidia-cublas-cu12 nvidia-cudnn-cu12
+   ```
 
 ---
 
 ### 2. macOS
 
-1. Установите FFmpeg и Python через Homebrew:
+1. Установите Python и FFmpeg через Homebrew (если еще не установлены):
    ```bash
    brew install python ffmpeg
    ```
 2. Откройте терминал в папке проекта:
    ```bash
-   python3 -m venv .venv
-   source .venv/bin/activate
-   pip install --upgrade pip
    pip install -r requirements.txt
-   python run.py
+   python3 run.py
    ```
+   *(либо выполните `./start_unix.sh`)*.
 
 ---
 
@@ -94,15 +108,12 @@ Transcribator/
 1. Установите системные пакеты:
    ```bash
    sudo apt update
-   sudo apt install -y python3 python3-venv python3-pip ffmpeg git
+   sudo apt install -y python3 python3-pip ffmpeg git
    ```
 2. Откройте терминал в папке проекта:
    ```bash
-   python3 -m venv .venv
-   source .venv/bin/activate
-   pip install --upgrade pip
    pip install -r requirements.txt
-   python run.py
+   python3 run.py
    ```
 3. *(Опционально для видеокарт NVIDIA)*: убедитесь, что установлены драйверы NVIDIA и выполните `pip install nvidia-cublas-cu12 nvidia-cudnn-cu12`.
 
